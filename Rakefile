@@ -7,12 +7,12 @@ require 'rake/testtask'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "activerecord-import"
+    gem.name = "Empact-activerecord-import"
     gem.summary = %Q{Bulk-loading extension for ActiveRecord}
     gem.description = %Q{Extraction of the ActiveRecord::Base#import functionality from ar-extensions for Rails 3 and beyond}
     gem.email = "zach.dennis@gmail.com"
     gem.homepage = "http://github.com/zdennis/activerecord-import"
-    gem.authors = ["Zach Dennis"]
+    gem.authors = ["Zach Dennis", "Ben Woosley"]
     gem.files = FileList["VERSION", "Rakefile", "README*", "lib/**/*"]
 
     bundler = Bundler.load
