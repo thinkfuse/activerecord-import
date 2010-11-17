@@ -22,3 +22,4 @@ Zach Dennis (zach.dennis@gmail.com)
 * Thibaud Guillaume-Gentil
 * Mark Van Holstyn 
 * Victor Costan
+* Ben Woosley - Postgres support, general cleanup
