@@ -129,6 +129,11 @@ class ActiveRecord::Base
     #  BlogPost.import posts, :synchronize=>[ post ]
     #  puts post.author_name # => 'yoda'
     #
+    #  # Example synchronizing unsaved/new instances in memory by using a uniqued imported field
+    #  posts = [BlogPost.new(:title => "Foo"), BlogPost.new(:title => "Bar")]
+    #  BlogPost.import posts, :synchronize => posts
+    #  puts posts.first.new_record? # => false
+    #
     # == On Duplicate Key Update (MySQL only)
     #
     # The :on_duplicate_key_update option can be either an Array or a Hash. 
@@ -178,6 +183,9 @@ class ActiveRecord::Base
             end
           # end
         end
+        # supports empty array
+      elsif args.last.is_a?( Array ) and args.last.empty?
+        return ActiveRecord::Import::Result.new([], 0) if args.last.empty?
         # supports 2-element array and array
       elsif args.size == 2 and args.first.is_a?( Array ) and args.last.is_a?( Array )
         column_names, array_of_attributes = args
@@ -209,7 +217,8 @@ class ActiveRecord::Base
       end
 
       if options[:synchronize]
-        synchronize( options[:synchronize] )
+        sync_keys = options[:synchronize_keys] || [self.primary_key]
+        synchronize( options[:synchronize], sync_keys)
       end
 
       return_obj.num_inserts = 0 if return_obj.num_inserts.nil?
@@ -236,7 +245,9 @@ class ActiveRecord::Base
       # keep track of the instance and the position it is currently at. if this fails
       # validation we'll use the index to remove it from the array_of_attributes
       arr.each_with_index do |hsh,i|
-        instance = new( hsh )
+        instance = new do |model|
+          hsh.each_pair{ |k,v| model.send("#{k}=", v) }
+        end
         if not instance.valid?
           array_of_attributes[ i ] = nil
           failed_instances << instance
@@ -255,9 +266,11 @@ class ActiveRecord::Base
     # information on +column_names+, +array_of_attributes_ and
     # +options+.
     def import_without_validations_or_callbacks( column_names, array_of_attributes, options={} )
+      columns = column_names.map { |name| columns_hash[name.to_s] }
+
       columns_sql = "(#{column_names.map{|name| connection.quote_column_name(name) }.join(',')})"
       insert_sql = "INSERT #{options[:ignore] ? 'IGNORE ':''}INTO #{quoted_table_name} #{columns_sql} VALUES "
-      values_sql = values_sql_for_column_names_and_attributes(column_names, array_of_attributes)
+      values_sql = values_sql_for_columns_and_attributes(columns, array_of_attributes)
       if not supports_import?
         number_inserted = 0
         values_sql.each do |values|
@@ -280,15 +293,14 @@ class ActiveRecord::Base
 
     # Returns SQL the VALUES for an INSERT statement given the passed in +columns+
     # and +array_of_attributes+.
-    def values_sql_for_column_names_and_attributes(column_names, array_of_attributes)   # :nodoc:
-      columns = column_names.map { |name| columns_hash[name] }
-
+    def values_sql_for_columns_and_attributes(columns, array_of_attributes)   # :nodoc:
       array_of_attributes.map do |arr|
         my_values = arr.each_with_index.map do |val,j|
-          if !sequence_name.blank? && column_names[j] == primary_key && val.nil?
+          column = columns[j]
+          if !sequence_name.blank? && column.name == primary_key && val.nil?
              connection.next_value_for_sequence(sequence_name)
           else
-             connection.quote(val, columns[j])
+            connection.quote(column.type_cast(val), column)
           end
         end
         "(#{my_values.join(',')})"

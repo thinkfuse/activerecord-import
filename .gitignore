@@ -1,4 +1,4 @@
-## MAC OS
+m## MAC OS
 .DS_Store
 
 ## TEXTMATE
@@ -17,9 +17,13 @@ tmtags
 coverage
 rdoc
 pkg
-.bundle
 
 ## PROJECT::SPECIFIC
 log/*.log
 test.db
 test/database.yml
+
+.bundle/
+.redcar/
+.rvmrc
+docsite/

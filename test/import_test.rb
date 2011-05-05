@@ -12,6 +12,13 @@ describe "#import" do
     end
   end
 
+  it "should not produce an error when importing empty arrays" do
+    assert_nothing_raised do
+      Topic.import []
+      Topic.import %w(title author_name), []
+    end
+  end
+
   context "with :validation option" do
     let(:columns) { %w(title author_name) }
     let(:valid_values) { [[ "LDAP", "Jerry Carter"], ["Rails Recipes", "Chad Fowler"]] }
@@ -56,6 +63,26 @@ describe "#import" do
         end
         assert_equal 0, Topic.find_all_by_title(invalid_values.map(&:first)).count
       end
+    end
+  end
+  
+  context "with :synchronize option" do
+    context "synchronizing on new records" do
+      let(:new_topics) { Build(3, :topics) }
+    
+      it "doesn't reload any data (doesn't work)" do
+        Topic.import new_topics, :synchronize => new_topics
+        assert new_topics.all?(&:new_record?), "No record should have been reloaded"
+      end
+    end
+    
+    context "synchronizing on new records with explicit conditions" do
+      let(:new_topics) { Build(3, :topics) }
+
+      it "reloads data for existing in-memory instances" do
+        Topic.import(new_topics, :synchronize => new_topics, :synchronize_key => [:title] )
+        assert new_topics.all?(&:new_record?), "Records should have been reloaded"
+      end      
     end
   end
   
@@ -135,6 +162,13 @@ describe "#import" do
     end
   end
   
+  context "with an array of columns and an array of values" do
+    it "should import ids when specified" do
+      Topic.import [:id, :author_name, :title], [[99, "Bob Jones", "Topic 99"]]
+      assert_equal 99, Topic.last.id
+    end
+  end
+  
   context "ActiveRecord timestamps" do
     context "when the timestamps columns are present" do
       setup do
@@ -199,4 +233,10 @@ describe "#import" do
     end
   end
 
+  context "importing a datetime field" do
+    it "should import a date with YYYY/MM/DD format just fine" do
+      Topic.import [:author_name, :title, :last_read], [["Bob Jones", "Topic 2", "2010/05/14"]]
+      assert_equal "2010/05/14".to_date, Topic.last.last_read.to_date
+    end
+  end
 end
